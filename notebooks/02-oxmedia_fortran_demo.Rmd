@@ -140,3 +140,16 @@ omexdia_solve <- OMEXDIAsolve()             ## assignment to avoid verbosity
 names(omexdia_solve)
 ```
 
+## optional function plotDIA
+
+```{r}
+plotDIA <- function(dia) {
+    plot(dia,
+         which = c("O2", "NO3", "NH3", "ODU", "TOC"), 
+         ylim = list(c(2, 0), c(5, 0), c(5,0), c(5,0), c(5,0)),
+         grid = Grid$x.mid, lwd = 2, xlab = c(rep("mmol/m3",4), "%"),
+         xyswap = TRUE, ylab = "depth, cm", 
+         obspar = list(pch = ".", cex = 3))   
+}
+```
+
