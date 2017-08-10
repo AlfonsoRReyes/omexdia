@@ -1,3 +1,5 @@
+# requires packages: ReacTran, marelac
+
 ## =============================================================================
 ##
 ## OMEXDIA_C: C, N, and O2 diagenesis
@@ -275,7 +277,6 @@ Nbudget <- function(out) {
 
 pars1 <- pars            
 pars1["MeanFlux"] <- 15000/12*100/365  # nmol/cm2/d - C deposition 
-
 print(system.time(
  DIA1  <- steady.1D (y = Cini, func = OMEXDIA_C, names = svarnames,
                    parms = pars1, nspec = nspec, positive = TRUE)

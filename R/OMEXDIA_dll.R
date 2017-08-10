@@ -1,3 +1,9 @@
+# load ReacTran library
+library(ReacTran)
+# load the DLL
+dyn.load(paste("./src/omexdia", .Platform$dynlib.ext, sep = ""))
+
+
 ## =============================================================================
 ## R-code to run OMEXDIA from the DLL
 ## Implementation by karline soetaert (karline.soetaert@nioz.nl)
@@ -107,4 +113,4 @@ OMEXDIAsolve <- function (pars = list(), D = 60)  {
 
   DIA$Parms <- Parms
   return(DIA)
-   
+}   
