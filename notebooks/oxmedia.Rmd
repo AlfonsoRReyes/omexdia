@@ -5,12 +5,13 @@ output: html_notebook
 
 ```{r}
 # now, compile
-system("R CMD SHLIB omexdia.f")
+system("R CMD SHLIB ../src/omexdia.f")
 ```
 
 ```{r}
+# load Fortran subroutines
 library(ReacTran)
-dyn.load(paste("omexdia", .Platform$dynlib.ext, sep = ""))
+dyn.load(paste("../src/omexdia", .Platform$dynlib.ext, sep = ""))
 ```
 
 
