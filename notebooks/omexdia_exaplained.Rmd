@@ -5,7 +5,16 @@ output:
   html_notebook: default
 ---
 
+```{r setup, include=F, error=T, message=F, warning=F}
+knitr::opts_chunk$set(echo=T, comment=NA, error=T, warning=F, message = F, fig.align = 'center')
+```
+
+OMEXDIA_C: C, N, and O2 **diagenesis**   
+The model function, parameters, grids, budget functions   
+Implementation by karline soetaert (karline.soetaert@nioz.nl)   
+
 [Link to main page](http://www.rforscience.com/modelling/omexdia/)
+
 
 ## Concentration profiles
 
@@ -14,9 +23,7 @@ knitr::include_graphics("../images/01-profiles.jpg")
 ```
 
 
-```{r setup, include=F, error=T, message=F, warning=F}
-knitr::opts_chunk$set(echo=T, comment=NA, error=T, warning=F, message = F, fig.align = 'center')
-```
+
 
 
 ## Rate profiles
