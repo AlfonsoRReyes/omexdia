@@ -26,7 +26,6 @@ knitr::include_graphics("../images/01-profiles.jpg")
 
 
 
-
 ## Rate profiles
 
 

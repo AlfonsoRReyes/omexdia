@@ -81,6 +81,7 @@ dyn.load(paste("../src/omexdia", .Platform$dynlib.ext, sep = ""))
     TOC0            = 0.5)
 
 ## SHINY application
+plotDIA <- function(dia) "this plot goes to Shiny app"
 
 OMEXDIAsteady <- function (pars= list(), D = 60) {
   DIA <-  OMEXDIAsolve (pars, D)
@@ -135,6 +136,7 @@ OMEXDIAsteady()
 ```
 
 ```{r}
-OMEXDIAsolve()
+omexdia_solve <- OMEXDIAsolve()             ## assignment to avoid verbosity
+names(omexdia_solve)
 ```
 
