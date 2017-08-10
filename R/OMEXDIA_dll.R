@@ -3,6 +3,15 @@ library(ReacTran)
 # load the DLL
 dyn.load(paste("./src/omexdia", .Platform$dynlib.ext, sep = ""))
 
+plotDIA <- function(dia) {
+    plot(dia,
+         which = c("O2", "NO3", "NH3", "ODU", "TOC"), 
+         ylim = list(c(2, 0), c(5, 0), c(5,0), c(5,0), c(5,0)),
+         grid = Grid$x.mid, lwd = 2, xlab = c(rep("mmol/m3",4), "%"),
+         xyswap = TRUE, ylab = "depth, cm", 
+         obspar = list(pch = ".", cex = 3))   
+}
+
 
 ## =============================================================================
 ## R-code to run OMEXDIA from the DLL
@@ -67,6 +76,10 @@ dyn.load(paste("./src/omexdia", .Platform$dynlib.ext, sep = ""))
     DispODU         = 0.8424   +10*0.0242    ,
     TOC0            = 0.5)
 
+
+
+  
+  
 ## SHINY application
 
 OMEXDIAsteady <- function (pars= list(), D = 60) {
