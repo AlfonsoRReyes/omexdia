@@ -17,6 +17,12 @@ dyn.load(paste("../src/omexdia", .Platform$dynlib.ext, sep = ""))
 
 
 ```{r}
+
+# load Fortran subroutines
+library(ReacTran)
+dyn.load(paste("../src/omexdia", .Platform$dynlib.ext, sep = ""))
+
+
 ## =============================================================================
 ## R-code to run OMEXDIA from the DLL
 ## Implementation by karline soetaert (karline.soetaert@nioz.nl)
@@ -78,15 +84,20 @@ dyn.load(paste("../src/omexdia", .Platform$dynlib.ext, sep = ""))
     DispNO3         = 0.844992 +10*0.0336    ,
     DispNH3         = 0.84672  +10*0.0336    ,
     DispODU         = 0.8424   +10*0.0242    ,
-    TOC0            = 0.5)
+    TOC0            = 0.5 )  # end of c()
 
-## SHINY application
-# plotDIA <- function(dia) "this plot goes to Shiny app"
+  
+
+    
+
+
 
 OMEXDIAsteady <- function (pars= list(), D = 60) {
     DIA <-  OMEXDIAsolve (pars, D)
     plotDIA (DIA)
 }
+
+
   
 OMEXDIAsolve <- function (pars = list(), D = 60)  {
     
@@ -128,6 +139,49 @@ OMEXDIAsolve <- function (pars = list(), D = 60)  {
     DIA$Parms <- Parms
     return(DIA)
 }   
+
+plotDIA <- function(dia) {
+    plot(dia,
+         which = c("O2", "NO3", "NH3", "ODU", "TOC"), 
+         ylim = list(c(2, 0), c(5, 0), c(5,0), c(5,0), c(5,0)),
+         grid = Grid$x.mid, lwd = 2, xlab = c(rep("mmol/m3",4), "%"),
+         xyswap = TRUE, ylab = "depth, cm", 
+         obspar = list(pch = ".", cex = 3))   
+}
+
+
+
+
+
+
+## SHINY application
+# plotDIA <- function(dia) "this plot goes to Shiny app"
+# shiny app
+
+library(shiny)
+server <- function(input, output) {
+    output$distPlot <- renderPlot({
+        # hist(rnorm(input$obs), col = 'darkgray', border = 'white')
+        omexdia_solved <- OMEXDIAsteady()
+        
+    })
+}
+
+
+ui <- fluidPage(
+    sidebarLayout(
+        sidebarPanel(
+            with(Parms, {
+            sliderInput('MeanFlux', "MeanFlux:", min = 0, 
+                        max = 100, value = 20)
+            })
+        ),
+        mainPanel(plotOutput("distPlot"))
+    )
+)
+
+shinyApp(ui = ui, server = server)  
+
 ```
 
 
