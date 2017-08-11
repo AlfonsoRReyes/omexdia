@@ -32,7 +32,6 @@ porGrid <- setup.prop.1D(func = exp.profile,
 
 ## The parameters
 ## the default parameter values
-
 Parms <- c(
     ## organic matter dynamics  #
     MeanFlux = 20000/12*100/365,  # nmol/cm2/d - Carbon deposition: 20gC/m2/yr
@@ -77,8 +76,10 @@ Parms <- c(
 
 
 
-# this is the main call that starts all
+# this is the main call that starts all and generates the plot
 OMEXDIAsteady <- function (pars= list(), D = 60) {
+    # the object DIA has these clases:
+    # "steady1D"  "rootSolve" "list" 
     DIA <-  OMEXDIAsolve (pars, D)
     plotDIA (DIA)
 }

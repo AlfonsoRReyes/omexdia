@@ -85,6 +85,7 @@ dyn.load(paste("../src/omexdia", .Platform$dynlib.ext, sep = ""))
 OMEXDIAsteady <- function (pars= list(), D = 60) {
     DIA <-  OMEXDIAsolve (pars, D)
     plotDIA (DIA)
+    return(DIA)
 }
 
 
@@ -139,8 +140,9 @@ plotDIA <- function(dia) {
          obspar = list(pch = ".", cex = 3))   
 }
 
+```
 
-
+```{r}
 ## SHINY application
 # plotDIA <- function(dia) "this plot goes to Shiny app"
 # shiny app
@@ -176,14 +178,65 @@ ui <- fluidPage(
 )
 
 shinyApp(ui = ui, server = server)  
-
 ```
+
 
 
 ```{r}
 # this call uses deault values, runs and returns solution
 omexdia_solved <- OMEXDIAsteady()
+class(omexdia_solved)      # belongs to  "steady1D"  "rootSolve" "list"   
+names(omexdia_solved)
+# solution is a list of these objects:
+
+#   [1] "y"           "O2flux"      "O2deepflux"  "NO3flux"     "NO3deepflux"
+#   [6] "NH3flux"     "NH3deepflux" "ODUflux"     "ODUdeepflux" "Cflux"      
+#  [11] "partDenit"   "partAnoxic"  "partOxic"    "Cprod"       "Nprod"      
+#  [16] "TOC"         "Oxicmin"     "Denitrific"  "anoxicmin"   "nitri"      
+#  [21] "oduox"       "odudepo"     "913"         "914"         "915"        
+#  [26] "916"         "917"         "918"         "919"         "920"        
+#  [31] "921"         "922"         "923"         "924"         "925"        
+#  [36] "926"         "927"         "928"         "929"         "930"        
+#  [41] "931"         "932"         "933"         "934"         "935"        
+#  [46] "936"         "937"         "938"         "939"         "940"        
+#  [51] "941"         "942"         "943"         "944"         "945"        
+#  [56] "946"         "947"         "948"         "949"         "950"        
+#  [61] "951"         "952"         "953"         "954"         "955"        
+#  [66] "956"         "957"         "958"         "959"         "960"        
+#  [71] "961"         "962"         "963"         "964"         "965"        
+#  [76] "966"         "967"         "968"         "969"         "970"        
+#  [81] "971"         "972"         "973"         "974"         "975"        
+#  [86] "976"         "977"         "978"         "979"         "980"        
+#  [91] "981"         "982"         "983"         "984"         "985"        
+#  [96] "986"         "987"         "988"         "989"         "990"        
+# [101] "991"         "992"         "993"         "994"         "995"        
+# [106] "996"         "997"         "998"         "999"         "1000"       
+# [111] "1001"        "1002"        "Parms"  
+
+names(omexdia_solved[["Parms"]])
+# the object `Parms` contains the input parameters
+
+#  [1] "MeanFlux"   "rFast"      "rSlow"      "pFast"      "w"          "NCrFdet"   
+#  [7] "NCrSdet"    "bwO2"       "bwNO3"      "bwNH3"      "bwODU"      "biot"      
+# [13] "mixL"       "NH3Ads"     "rnit"       "ksO2nitri"  "rODUox"     "ksO2oduox" 
+# [19] "ksO2oxic"   "ksNO3denit" "kinO2denit" "kinNO3anox" "kinO2anox"  "DispO2"    
+# [25] "DispNO3"    "DispNH3"    "DispODU"    "TOC0"  
+
+
+omexdia_solved[["y"]]
+# the object `y` is a matrix of 100x6 
+
+  #           FDET          SDET            O2        NO3         NH3          ODU
+  # [1,]  2.573960e+05  1.492867e+06  2.975587e+02 10.1811490  1.15675420 3.213435e-04
+  # [2,]  2.428468e+05  1.491176e+06  2.926945e+02 10.5530438  1.45138669 9.217896e-04
+  # [3,]  2.283664e+05  1.489412e+06  2.877200e+02 10.9449211  1.73379977 1.494178e-03
+  # [4,]  2.140038e+05  1.487571e+06  2.826429e+02 11.3570361  2.00194357 2.034971e-03
+      # [5,]  1.998096e+05  1.485653e+06  2.774715e+02 11.7894969  2.25374613 2.540705e-03
+  # ...
+
 ```
+
+
 
 ```{r}
 omexdia_solved <- OMEXDIAsolve()             ## assignment to avoid verbosity
