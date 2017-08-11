@@ -22,6 +22,67 @@ dyn.load(paste("../src/omexdia", .Platform$dynlib.ext, sep = ""))
 library(ReacTran)
 dyn.load(paste("../src/omexdia", .Platform$dynlib.ext, sep = ""))
 
+OMEXDIAsteady <- function (pars= list(), D = 60) {
+    DIA <-  OMEXDIAsolve (pars, D)
+    plotDIA (DIA)
+}
+
+  
+OMEXDIAsolve <- function (pars = list(), D = 60)  {
+    
+    ## check parameter inputs
+    nms <- names(Parms)
+    Parms[(namc <- names(pars))] <- pars
+    if (length(noNms <- namc[!namc %in% nms]) > 0)
+    warning("unknown names in pars: ", paste(noNms, collapse = ", "))
+    
+    # Bioturbation profile
+    Db <- setup.prop.1D(func = exp.profile,
+                         grid = Grid,
+                         y.0 = Parms[["biot"]], y.inf = 0.,
+                         L = Parms[["mixL"]])$int
+    parms <- Parms[-which(nms %in%c("biot", "mixL"))]
+    
+    Flux <- as.double(Parms["MeanFlux"])
+    
+    initpar <- c(parms, Grid$dx, Grid$dx.aux, porGrid$mid, porGrid$int,Db)
+    
+    ## solve the steady-state condition
+    OC   <- rep(10,6*N)
+    nout <- 1002
+    outnames <- c("O2flux", "O2deepflux", "NO3flux", "NO3deepflux", "NH3flux",
+      "NH3deepflux", "ODUflux", "ODUdeepflux", "Cflux", "partDenit", 
+      "partAnoxic", "partOxic", 
+      rep("Cprod",N), rep("Nprod",N), rep("TOC",N), 
+      rep("Oxicmin",N), rep("Denitrific",N), rep("anoxicmin",N),
+      rep("nitri",N), rep("oduox",N), rep("odudepo",N))
+    
+    ynames <- c("FDET","SDET","O2","NO3","NH3","ODU")
+    
+    DIA  <- steady.1D(y=as.double(OC),func="omexdiamod",initfunc="initomexdia",
+                     names = ynames, initforc = "initforc", forcings = mean(Flux),  
+                     initpar=initpar,nspec=6,
+                     dllname="omexdia", 
+                     nout=nout,outnames = outnames, positive=TRUE)
+    
+    DIA$Parms <- Parms
+    return(DIA)
+}   
+
+plotDIA <- function(dia) {
+    plot(dia,
+         which = c("O2", "NO3", "NH3", "ODU", "TOC"), 
+         ylim = list(c(2, 0), c(5, 0), c(5,0), c(5,0), c(5,0)),
+         grid = Grid$x.mid, lwd = 2, xlab = c(rep("mmol/m3",4), "%"),
+         xyswap = TRUE, ylab = "depth, cm", 
+         obspar = list(pch = ".", cex = 3))   
+}
+```
+
+
+
+```{r}
+
 
 ## =============================================================================
 ## R-code to run OMEXDIA from the DLL
@@ -87,71 +148,7 @@ dyn.load(paste("../src/omexdia", .Platform$dynlib.ext, sep = ""))
     TOC0            = 0.5 )  # end of c()
 
   
-
-    
-
-
-
-OMEXDIAsteady <- function (pars= list(), D = 60) {
-    DIA <-  OMEXDIAsolve (pars, D)
-    plotDIA (DIA)
-}
-
-
-  
-OMEXDIAsolve <- function (pars = list(), D = 60)  {
-    
-    ## check parameter inputs
-    nms <- names(Parms)
-    Parms[(namc <- names(pars))] <- pars
-    if (length(noNms <- namc[!namc %in% nms]) > 0)
-    warning("unknown names in pars: ", paste(noNms, collapse = ", "))
-    
-    # Bioturbation profile
-    Db <- setup.prop.1D(func = exp.profile,
-                         grid = Grid,
-                         y.0 = Parms[["biot"]], y.inf = 0.,
-                         L = Parms[["mixL"]])$int
-    parms <- Parms[-which(nms %in%c("biot", "mixL"))]
-    
-    Flux <- as.double(Parms["MeanFlux"])
-    
-    initpar <- c(parms, Grid$dx, Grid$dx.aux, porGrid$mid, porGrid$int,Db)
-    
-    ## solve the steady-state condition
-    OC   <- rep(10,6*N)
-    nout <- 1002
-    outnames <- c("O2flux", "O2deepflux", "NO3flux", "NO3deepflux", "NH3flux",
-      "NH3deepflux", "ODUflux", "ODUdeepflux", "Cflux", "partDenit", 
-      "partAnoxic", "partOxic", 
-      rep("Cprod",N), rep("Nprod",N), rep("TOC",N), 
-      rep("Oxicmin",N), rep("Denitrific",N), rep("anoxicmin",N),
-      rep("nitri",N), rep("oduox",N), rep("odudepo",N))
-    
-    ynames <- c("FDET","SDET","O2","NO3","NH3","ODU")
-    
-    DIA  <- steady.1D(y=as.double(OC),func="omexdiamod",initfunc="initomexdia",
-                     names = ynames, initforc = "initforc", forcings = mean(Flux),  
-                     initpar=initpar,nspec=6,
-                     dllname="omexdia", 
-                     nout=nout,outnames = outnames, positive=TRUE)
-    
-    DIA$Parms <- Parms
-    return(DIA)
-}   
-
-plotDIA <- function(dia) {
-    plot(dia,
-         which = c("O2", "NO3", "NH3", "ODU", "TOC"), 
-         ylim = list(c(2, 0), c(5, 0), c(5,0), c(5,0), c(5,0)),
-         grid = Grid$x.mid, lwd = 2, xlab = c(rep("mmol/m3",4), "%"),
-         xyswap = TRUE, ylab = "depth, cm", 
-         obspar = list(pch = ".", cex = 3))   
-}
-
-
-
-
+# print(Parms['MeanFlux'])
 
 
 ## SHINY application
@@ -162,7 +159,10 @@ library(shiny)
 server <- function(input, output) {
     output$distPlot <- renderPlot({
         # hist(rnorm(input$obs), col = 'darkgray', border = 'white')
-        omexdia_solved <- OMEXDIAsteady()
+        Parms["mixL"] <- input$mixL
+        Parms["MeanFlux"] <- input$MeanFlux
+        Parms["biot"] <- input$biot
+        omexdia_solved <- OMEXDIAsteady(Parms)
         
     })
 }
@@ -171,10 +171,15 @@ server <- function(input, output) {
 ui <- fluidPage(
     sidebarLayout(
         sidebarPanel(
-            with(Parms, {
-            sliderInput('MeanFlux', "MeanFlux:", min = 0, 
-                        max = 100, value = 20)
-            })
+    
+            sliderInput("MeanFlux", "Mean Carbon Flux:", min = 0, 
+                        max = 1000, value = Parms['MeanFlux']),
+            sliderInput("biot", "Bioturbation:", min = 0, 
+                        max = 0.15, value = Parms[["biot"]]),
+            sliderInput("mixL", "Depth of Mixed layer:", min = 0, 
+                        max = 10, value = Parms[["mixL"]])
+                
+            
         ),
         mainPanel(plotOutput("distPlot"))
     )
@@ -208,6 +213,13 @@ names(omexdia_solved)
 
 ## optional function plotDIA
 
+
+```{r}
+with(as.list(Parms), {
+    cat(MeanFlux)
+    cat(biot)
+     })
+```
 
 
 
