@@ -1,0 +1,256 @@
+---
+title: "oxmedia Fortran call"
+output: html_notebook
+---
+
+```{r}
+# compile Fortran code if no compiled file
+if (!file.exists(paste("../src/omexdia", .Platform$dynlib.ext, sep = ""))) 
+    system("R CMD SHLIB ../src/omexdia.f")
+
+
+# load Fortran subroutines
+library(ReacTran)
+dyn.load(paste("../src/omexdia", .Platform$dynlib.ext, sep = ""))
+
+
+# default input parameters
+
+## =============================================================================
+## R-code to run OMEXDIA from the DLL
+## Implementation by karline soetaert (karline.soetaert@nioz.nl)
+## =============================================================================
+
+  N     <- 100
+  Grid  <- setup.grid.1D(x.up=0, dx.1 = 0.01, N = N, L = 50)
+  Depth <- Grid$x.mid                  # depth of each box
+
+# porosity gradients
+  exp.profile <- function(x, y.0, y.inf, x.att = 1, L = 0)
+           return(y.inf + (y.0 - y.inf) * exp(-pmax(0, x-L)/x.att))
+
+  porGrid <- setup.prop.1D(func = exp.profile,
+                         grid = Grid,
+                         y.0 = 0.9, y.inf = 0.5,
+                         x.att = 3)
+
+## The parameters
+## the default parameter values
+
+  Parms <- c(
+  ## organic matter dynamics  #
+    MeanFlux = 20000/12*100/365,  # nmol/cm2/d - Carbon deposition: 20gC/m2/yr
+    rFast    = 0.07            ,  #/day        - decay rate fast decay detritus
+    rSlow    = 0.00001         ,  #/day        - decay rate slow decay detritus
+    pFast    = 0.9             ,  #-           - fraction fast detritus in flux
+    w        = 0.1/1000/365    ,  # cm/d       - advection rate
+    NCrFdet  = 0.16            ,  # molN/molC  - NC ratio fast decay detritus
+    NCrSdet  = 0.13            ,  # molN/molC  - NC ratio slow decay detritus
+
+  ## oxygen and DIN dynamics  #
+
+  ## Nutrient bottom water conditions
+    bwO2            = 300      ,    #mmol/m3     Oxygen conc in bottom water
+    bwNO3           = 10       ,    #mmol/m3
+    bwNH3           = 1        ,    #mmol/m3
+    bwODU           = 0        ,    #mmol/m3
+
+  ## Bioturbation
+    biot            = 1/365    ,    # cm2/d      - bioturbation coefficient
+    mixL            = 5        ,    # cm         - depth of mixed layer
+
+  ## Nutrient parameters
+    NH3Ads          = 1.3      ,    #-           Adsorption coeff ammonium
+    rnit            = 20.      ,    #/d          Max nitrification rate
+    ksO2nitri       = 1.       ,    #umolO2/m3   half-sat O2 in nitrification
+    rODUox          = 20.      ,    #/d          Max rate oxidation of ODU
+    ksO2oduox       = 1.       ,    #mmolO2/m3   half-sat O2 in oxidation of ODU
+    ksO2oxic        = 3.       ,    #mmolO2/m3   half-sat O2 in oxic mineralisation
+    ksNO3denit      = 30.      ,    #mmolNO3/m3  half-sat NO3 in denitrification
+    kinO2denit      = 1.       ,    #mmolO2/m3   half-sat O2 inhib denitrification
+    kinNO3anox      = 1.       ,    #mmolNO3/m3  half-sat NO3 inhib anoxic degr
+    kinO2anox       = 1.       ,    #mmolO2/m3   half-sat O2 inhib anoxic min
+
+  ## Diffusion coefficients, temp = 10dgC
+    #Temp            = 10                     ,   # temperature
+    DispO2          = 0.955    +10*0.0386    ,  #cm2/d
+    DispNO3         = 0.844992 +10*0.0336    ,
+    DispNH3         = 0.84672  +10*0.0336    ,
+    DispODU         = 0.8424   +10*0.0242    ,
+    TOC0            = 0.5 )  # end of c()
+
+  
+
+# this is the main call that starts all
+OMEXDIAsteady <- function (pars= list(), D = 60) {
+    DIA <-  OMEXDIAsolve (pars, D)
+    plotDIA (DIA)
+    return(DIA)
+}
+
+
+# main solver function  
+OMEXDIAsolve <- function (pars = list(), D = 60)  {
+    ## check parameter inputs
+    nms <- names(Parms)
+    Parms[(namc <- names(pars))] <- pars
+    if (length(noNms <- namc[!namc %in% nms]) > 0)
+    warning("unknown names in pars: ", paste(noNms, collapse = ", "))
+    
+    # Bioturbation profile
+    Db <- setup.prop.1D(func = exp.profile,
+                         grid = Grid,
+                         y.0 = Parms[["biot"]], y.inf = 0.,
+                         L = Parms[["mixL"]])$int
+    parms <- Parms[-which(nms %in%c("biot", "mixL"))]
+    
+    Flux <- as.double(Parms["MeanFlux"])
+    
+    initpar <- c(parms, Grid$dx, Grid$dx.aux, porGrid$mid, porGrid$int,Db)
+    
+    ## solve the steady-state condition
+    OC   <- rep(10,6*N)
+    nout <- 1002
+    outnames <- c("O2flux", "O2deepflux", "NO3flux", "NO3deepflux", "NH3flux",
+      "NH3deepflux", "ODUflux", "ODUdeepflux", "Cflux", "partDenit", 
+      "partAnoxic", "partOxic", 
+      rep("Cprod",N), rep("Nprod",N), rep("TOC",N), 
+      rep("Oxicmin",N), rep("Denitrific",N), rep("anoxicmin",N),
+      rep("nitri",N), rep("oduox",N), rep("odudepo",N))
+    
+    ynames <- c("FDET","SDET","O2","NO3","NH3","ODU")
+    
+    DIA  <- steady.1D(y=as.double(OC),func="omexdiamod",initfunc="initomexdia",
+                     names = ynames, initforc = "initforc", forcings = mean(Flux),  
+                     initpar=initpar,nspec=6,
+                     dllname="omexdia", 
+                     nout=nout,outnames = outnames, positive=TRUE)
+    
+    DIA$Parms <- Parms
+    return(DIA)
+}   
+
+# function that call plotting
+plotDIA <- function(dia) {
+    plot(dia,
+         which = c("O2", "NO3", "NH3", "ODU", "TOC"), 
+         ylim = list(c(2, 0), c(5, 0), c(5,0), c(5,0), c(5,0)),
+         grid = Grid$x.mid, lwd = 2, xlab = c(rep("mmol/m3",4), "%"),
+         xyswap = TRUE, ylab = "depth, cm", 
+         obspar = list(pch = ".", cex = 3))   
+}
+
+```
+
+```{r}
+## SHINY application
+# plotDIA <- function(dia) "this plot goes to Shiny app"
+# shiny app
+
+library(shiny)
+server <- function(input, output) {
+    output$distPlot <- renderPlot({
+        # hist(rnorm(input$obs), col = 'darkgray', border = 'white')
+        Parms["mixL"] <- input$mixL
+        Parms["MeanFlux"] <- input$MeanFlux
+        Parms["biot"] <- input$biot
+        omexdia_solved <- OMEXDIAsteady(Parms)
+        
+    })
+}
+
+
+ui <- fluidPage(
+    sidebarLayout(
+        sidebarPanel(
+    
+            sliderInput("MeanFlux", "Mean Carbon Flux:", min = 0, 
+                        max = 1000, value = Parms[['MeanFlux']]),
+            sliderInput("biot", "Bioturbation:", min = 0, 
+                        max = 0.15, value = Parms[["biot"]]),
+            sliderInput("mixL", "Depth of Mixed layer:", min = 0, 
+                        max = 10, value = Parms[["mixL"]])
+                
+            
+        ),
+        mainPanel(plotOutput("distPlot"))
+    )
+)
+
+shinyApp(ui = ui, server = server)  
+```
+
+
+
+```{r}
+# this call uses deault values, runs and returns solution
+omexdia_solved <- OMEXDIAsteady()
+class(omexdia_solved)      # belongs to  "steady1D"  "rootSolve" "list"   
+names(omexdia_solved)
+# solution is a list of these objects:
+
+#   [1] "y"           "O2flux"      "O2deepflux"  "NO3flux"     "NO3deepflux"
+#   [6] "NH3flux"     "NH3deepflux" "ODUflux"     "ODUdeepflux" "Cflux"      
+#  [11] "partDenit"   "partAnoxic"  "partOxic"    "Cprod"       "Nprod"      
+#  [16] "TOC"         "Oxicmin"     "Denitrific"  "anoxicmin"   "nitri"      
+#  [21] "oduox"       "odudepo"     "913"         "914"         "915"        
+#  [26] "916"         "917"         "918"         "919"         "920"        
+#  [31] "921"         "922"         "923"         "924"         "925"        
+#  [36] "926"         "927"         "928"         "929"         "930"        
+#  [41] "931"         "932"         "933"         "934"         "935"        
+#  [46] "936"         "937"         "938"         "939"         "940"        
+#  [51] "941"         "942"         "943"         "944"         "945"        
+#  [56] "946"         "947"         "948"         "949"         "950"        
+#  [61] "951"         "952"         "953"         "954"         "955"        
+#  [66] "956"         "957"         "958"         "959"         "960"        
+#  [71] "961"         "962"         "963"         "964"         "965"        
+#  [76] "966"         "967"         "968"         "969"         "970"        
+#  [81] "971"         "972"         "973"         "974"         "975"        
+#  [86] "976"         "977"         "978"         "979"         "980"        
+#  [91] "981"         "982"         "983"         "984"         "985"        
+#  [96] "986"         "987"         "988"         "989"         "990"        
+# [101] "991"         "992"         "993"         "994"         "995"        
+# [106] "996"         "997"         "998"         "999"         "1000"       
+# [111] "1001"        "1002"        "Parms"  
+
+names(omexdia_solved[["Parms"]])
+# the object `Parms` contains the input parameters
+
+#  [1] "MeanFlux"   "rFast"      "rSlow"      "pFast"      "w"          "NCrFdet"   
+#  [7] "NCrSdet"    "bwO2"       "bwNO3"      "bwNH3"      "bwODU"      "biot"      
+# [13] "mixL"       "NH3Ads"     "rnit"       "ksO2nitri"  "rODUox"     "ksO2oduox" 
+# [19] "ksO2oxic"   "ksNO3denit" "kinO2denit" "kinNO3anox" "kinO2anox"  "DispO2"    
+# [25] "DispNO3"    "DispNH3"    "DispODU"    "TOC0"  
+
+
+omexdia_solved[["y"]]
+# the object `y` is a matrix of 100x6 
+
+  #           FDET          SDET            O2        NO3         NH3          ODU
+  # [1,]  2.573960e+05  1.492867e+06  2.975587e+02 10.1811490  1.15675420 3.213435e-04
+  # [2,]  2.428468e+05  1.491176e+06  2.926945e+02 10.5530438  1.45138669 9.217896e-04
+  # [3,]  2.283664e+05  1.489412e+06  2.877200e+02 10.9449211  1.73379977 1.494178e-03
+  # [4,]  2.140038e+05  1.487571e+06  2.826429e+02 11.3570361  2.00194357 2.034971e-03
+      # [5,]  1.998096e+05  1.485653e+06  2.774715e+02 11.7894969  2.25374613 2.540705e-03
+  # ...
+
+```
+
+
+
+```{r}
+omexdia_solved <- OMEXDIAsolve()             ## assignment to avoid verbosity
+names(omexdia_solved)
+```
+
+
+```{r}
+# check prameter values
+with(as.list(Parms), {
+    cat(MeanFlux)
+    cat(biot)
+     })
+```
+
+
+
